@@ -1,30 +1,43 @@
 
-//create a web server with express
-const express = require('express');
-const app = express();
-const port = 3000;
-const bodyParser = require('body-parser');
+//create a web server
+var http = require('http');
+var fs = require('fs');
+var path = require('path');
 
-//parse the request body
-app.use(bodyParser.json());
-app.use(bodyParser.urlencoded({ extended: true }));
+//create a server
+http.createServer(function(req, res) {
+  //parse the filename
+  var file = path.normalize('.' + req.url);
+  console.log('Trying to serve', file);
 
-//create an array to store the comments
-let comments = [];
+  //route the file
+  function reportError(err) {
+    console.log(err);
+    res.writeHead(500);
+    res.end('Internal Server Error');
+  }
 
-//create a route to get all comments
-app.get('/comments', (req, res) => {
-    res.json(comments);
-});
-
-//create a route to post a new comment
-app.post('/comments', (req, res) => {
-    let newComment = req.body;
-    comments.push(newComment);
-    res.json(newComment);
-});
-
-//start the server
-app.listen(port, () => {
-    console.log(`Server started on http://localhost:${port}`);
-});
+  //check if the file exists and read it
+  fs.exists(file, function(exists) {
+    if (exists) {
+      fs.stat(file, function(err, stat) {
+        var rs;
+        if (err) {
+          return reportError(err);
+        }
+        if (stat.isDirectory()) {
+          res.writeHead(403);
+          res.end('Forbidden');
+        } else {
+          rs = fs.createReadStream(file);
+          rs.on('error', reportError);
+          res.writeHead(200);
+          rs.pipe(res);
+        }
+      });
+    } else {
+      res.writeHead(404);
+      res.end('Not found');
+    }
+  });
+}).listen(3000);
